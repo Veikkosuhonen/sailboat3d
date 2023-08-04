@@ -4,5 +4,11 @@ using UnityEngine.Serialization;
 
 public class Floating : MonoBehaviour
 {
-    [SerializeField] public GameObject[] floatPoints;
+    public FloatingPoint[] floatPoints;
+
+    private void Awake() {
+        floatPoints = GetComponentsInChildren<FloatingPoint>();
+    }
+
+    
 }

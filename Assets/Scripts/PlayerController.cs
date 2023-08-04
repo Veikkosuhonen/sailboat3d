@@ -4,10 +4,9 @@ using UnityEngine.InputSystem;
 public class PlayerController : MonoBehaviour
 {
     private Rigidbody _body;
-    private Collider _collider;
-    private bool _isOnGround;
+    private Collider collider;
 
-    [SerializeField] public float jumpImpulse;
+    [SerializeField] public float jumpForce;
     [SerializeField] public float moveForce;
     [SerializeField] public float panSpeedX;
     [SerializeField] public float panSpeedY;
@@ -15,24 +14,35 @@ public class PlayerController : MonoBehaviour
     [SerializeField] public float panMaxY;
     [SerializeField] public GameObject camTargetPosition;
     [SerializeField] public GameObject camTarget;
-
+    [SerializeField] public GameObject feetObject;
+    private Feet feet;
 
     private Vector3 _moveInputDirection;
+    private float steerDirection;
     private Vector2 _currentPan;
 
     [SerializeField] public float smoothTime;
     private float _currentVelocity;
+
+    public Boat boat;
     
     private void Awake()
     {
         _body = GetComponent<Rigidbody>();
-        _collider = GetComponent<CapsuleCollider>();
+        collider = GetComponent<Collider>();
+        feet = feetObject.GetComponent<Feet>();
+        feet.player = this;
     }
 
     private void Update()
     {
         MoveUpdate();
         CamDirUpdate();
+    }
+
+    private void FixedUpdate() {
+        if (boat)
+            boat.Steer(steerDirection);
     }
 
     private void CamDirUpdate()
@@ -43,10 +53,18 @@ public class PlayerController : MonoBehaviour
 
     private void MoveUpdate()
     {
-        if (_moveInputDirection.sqrMagnitude == 0) return;
-        
+        var moveVector = _moveInputDirection;
+
+        if (moveVector.sqrMagnitude == 0) {
+            collider.material.dynamicFriction = 1f;
+            collider.material.staticFriction = 1f;
+            return;
+        }
+        collider.material.dynamicFriction = 0f;
+        collider.material.staticFriction = 0f;
+
         // target direction is relative to camTarget direction. Rotate it:
-        var actualDirection = Quaternion.Euler(0f, camTarget.transform.eulerAngles.y, 0f) * _moveInputDirection;
+        var actualDirection = Quaternion.Euler(0f, camTarget.transform.eulerAngles.y, 0f) * moveVector;
         // Get the Y angle
         var targetAngle = Mathf.Atan2(actualDirection.x, actualDirection.z) * Mathf.Rad2Deg;
         // Smooth it
@@ -54,9 +72,12 @@ public class PlayerController : MonoBehaviour
         // Set the character angle
         transform.rotation = Quaternion.Euler(0f, angle, 0f);
         // Force direction. Not smoothed
-        var moveForceVec = actualDirection * moveForce;
-        // Apply force
-        _body.AddForce(moveForceVec * Time.deltaTime);
+        var moveForceVec = actualDirection * moveForce * Time.deltaTime;
+
+
+        // Apply force if feet touching something
+        if (feet.AddForce(-moveForceVec))
+            _body.AddForce(moveForceVec);
     }
 
     public void Move(InputAction.CallbackContext context) 
@@ -69,7 +90,10 @@ public class PlayerController : MonoBehaviour
     {
         Debug.Log("Jump, " + context.started);
         if (!context.started) return;
-        _body.AddRelativeForce(0f, jumpImpulse, 0f, ForceMode.Impulse);
+        // Apply force if feet touching something
+        var jumpForce = new Vector3(0f, this.jumpForce, 0f);
+        if (feet.AddForce(-jumpForce))
+            _body.AddForce(jumpForce);
     }
 
     public void Pan(InputAction.CallbackContext context)
@@ -82,5 +106,11 @@ public class PlayerController : MonoBehaviour
 
         _currentPan.x %= 360f;
         
+    }
+
+    public void Steer(InputAction.CallbackContext context) {
+        if (!boat) return;
+        var input = context.ReadValue<float>();
+        steerDirection = input;
     }
 }

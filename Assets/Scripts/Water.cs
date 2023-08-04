@@ -15,22 +15,36 @@ public class Water : MonoBehaviour
 
     private void OnTriggerStay(Collider other)
     {
-        var rigidBody = other.attachedRigidbody;
-        var floating = other.gameObject.GetComponent<Floating>();
+        var floating = other.gameObject.GetComponentInParent<Floating>();
+        var rigidBody = other.gameObject.GetComponentInParent<Rigidbody>();
+
         if (!rigidBody || !floating) return;
         
         foreach (var floatPoint in floating.floatPoints)
         {
-            var pos = floatPoint.transform.position;
+            var pos = floatPoint.gameObject.transform.position;
             if (!_bounds.Contains(pos)) continue;
-
+        
             var depth = Mathf.Clamp(pos.y, -2f, 0f);
-            Debug.Log(depth);
 
             var lift = -density * depth;
             
             rigidBody.AddForceAtPosition(Vector3.up * lift * Time.deltaTime, pos);
         }
     }
-    
+
+    private void OnTriggerEnter(Collider other) {
+        var bb = other.gameObject.GetComponent<BoatBody>();
+        if (!bb) return;
+        bb.inWater = true;
+    }
+
+    private void OnTriggerExit(Collider other) {
+        var bb = other.gameObject.GetComponent<BoatBody>();
+        if (!bb) return;
+        bb.inWater = false;
+    }
+
+
+
 }
